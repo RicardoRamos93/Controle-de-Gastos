@@ -227,6 +227,35 @@ html,body{height:100%}
 #groupDialog label{display:block;font-size:.85rem;color:var(--muted);margin-bottom:4px}
 .danger-link{background:none;border:none;color:var(--bad);text-decoration:underline;text-underline-offset:3px;padding:6px 0}
 @media (max-width:480px){.ghead{flex-direction:column}.split-row input[type=text]{width:90px}}
+/* perfis */
+.who{min-height:100%;display:grid;place-items:center;padding:24px;background:radial-gradient(120% 70% at 50% 0%, var(--surface) 0%, var(--bg) 60%)}
+.who-card{width:100%;max-width:520px;text-align:center}
+.who-card h1{font-family:var(--display);font-weight:800;font-size:2rem;margin:0 0 28px;letter-spacing:-.01em}
+.who-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:22px 18px;margin-bottom:32px}
+.who-btn{background:none;border:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:10px;width:96px;color:var(--ink);animation:rise .4s ease both}
+.avatar{width:84px;height:84px;border-radius:22px;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:800;font-size:2.2rem;position:relative;box-shadow:0 10px 24px -10px rgba(15,30,45,.5);transition:transform .15s ease, box-shadow .15s ease}
+.who-btn:hover .avatar,.who-btn:focus-visible .avatar{transform:translateY(-3px);box-shadow:0 0 0 3px var(--bg),0 0 0 6px var(--accent)}
+.who-btn span.nm{font-size:.95rem;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.avatar .lockmark{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;border-radius:50%;background:var(--surface);border:2px solid var(--bg);display:grid;place-items:center;font-size:.8rem}
+.avatar .star{position:absolute;left:-6px;top:-6px;width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:.75rem;display:grid;place-items:center;border:2px solid var(--bg)}
+.who-btn.add .avatar{background:none;border:2px dashed var(--line);color:var(--muted);box-shadow:none}
+.who-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+.prof-btn{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 12px 4px 4px;font-size:.9rem;max-width:150px}
+.prof-btn .avatar{width:28px;height:28px;border-radius:9px;font-size:.9rem;box-shadow:none}
+.prof-btn .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.swatches{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 14px}
+.swatch{width:36px;height:36px;border-radius:10px;border:none}
+.swatch[aria-pressed="true"]{box-shadow:0 0 0 3px var(--surface),0 0 0 5px var(--ink)}
+.pin-input{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:1.8rem!important;letter-spacing:.6em;text-align:center;padding-left:.6em!important}
+.prof-list{list-style:none;margin:0 0 14px;padding:0;border-top:1px solid var(--line)}
+.prof-list li{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.prof-list li .avatar{width:40px;height:40px;border-radius:12px;font-size:1.1rem;box-shadow:none}
+.prof-list li .info{flex:1;min-width:0;text-align:left}
+.prof-list li .info small{display:block;color:var(--muted)}
+.suggest{display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 12px}
+.suggest button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:4px 10px;font-size:.85rem}
+#profEdit .row-pin{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:480px){.prof-btn .nm{display:none}.prof-btn{padding:4px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -274,6 +303,16 @@ html,body{height:100%}
     <button type="button" class="linkish" id="toForgot">Esqueci a senha</button></div>
   </form>
 </div>
+<div class="who" id="who" hidden>
+  <div class="who-card">
+    <h1>Quem está usando?</h1>
+    <div class="who-grid" id="whoGrid"></div>
+    <div class="who-actions">
+      <button type="button" class="ghost" id="whoManage">Gerenciar perfis</button>
+      <button type="button" class="linkish" id="whoLogout">Sair da conta</button>
+    </div>
+  </div>
+</div>
 <div class="wrap" id="app" hidden>
   <header class="top">
     <div class="month">
@@ -283,6 +322,7 @@ html,body{height:100%}
     </div>
     <div class="top-right">
       <div class="sync" id="sync"></div>
+      <button type="button" class="prof-btn" id="profBtn" hidden aria-label="Trocar de perfil"></button>
       <button class="ghost" id="logoutBtn">Sair</button>
     </div>
   </header>
@@ -454,6 +494,7 @@ html,body{height:100%}
       <button class="ghost" id="restoreBtn">Restaurar backup</button>
       <button class="ghost" id="exportBtn">Baixar planilha (CSV)</button>
       <button class="ghost" id="importLocal" hidden>Trazer dados salvos neste navegador</button>
+      <button class="ghost" id="profToolBtn">Perfis</button>
       <button class="ghost" id="pwBtn">Trocar senha</button>
       <button class="ghost" id="scBtn">Conectar Atalho do iPhone</button>
     </div>
@@ -533,6 +574,54 @@ html,body{height:100%}
   </div>
 </dialog>
 
+<dialog id="pinDialog">
+  <form id="pinForm">
+    <h2 id="pinTitle">Digite o PIN</h2>
+    <p id="pinSub">Este perfil está protegido.</p>
+    <input type="password" id="pinInput" class="pin-input" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-label="PIN de 4 números">
+    <p class="err" id="pinErr" role="alert"></p>
+    <div class="dlg-actions">
+      <button type="button" class="ghost" id="pinCancel">Cancelar</button>
+      <button type="submit" class="primary">Entrar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="profManage">
+  <h2>Gerenciar perfis</h2>
+  <p>Cada perfil tem os próprios gastos, contas e orçamento. Até 6 perfis por conta.</p>
+  <ul class="prof-list" id="profList"></ul>
+  <div class="dlg-actions" style="justify-content:space-between">
+    <button type="button" class="ghost" id="profAdd">+ Adicionar perfil</button>
+    <button type="button" class="primary" id="profManageClose">Pronto</button>
+  </div>
+</dialog>
+
+<dialog id="profEdit">
+  <form id="peForm">
+    <h2 id="peTitle">Novo perfil</h2>
+    <label for="peName">Nome</label>
+    <input type="text" id="peName" maxlength="20" placeholder="Ex.: Esposa, Conjunta" autocomplete="off">
+    <div class="suggest" id="peSuggest"></div>
+    <label>Cor</label>
+    <div class="swatches" id="peColors"></div>
+    <label for="pePin">PIN de 4 números (opcional)</label>
+    <div class="row-pin">
+      <input type="password" id="pePin" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="Novo PIN" autocomplete="new-password">
+      <input type="password" id="pePin2" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="Repita" autocomplete="new-password">
+    </div>
+    <p style="margin:6px 0 0"><button type="button" class="linkish" id="peNoPin" hidden>Remover PIN deste perfil</button></p>
+    <p class="err" id="peErr" role="alert"></p>
+    <div class="dlg-actions" style="justify-content:space-between;flex-wrap:wrap">
+      <button type="button" class="danger-link" id="peDelete" hidden>Apagar perfil</button>
+      <span style="display:flex;gap:8px;margin-left:auto">
+        <button type="button" class="ghost" id="peCancel">Cancelar</button>
+        <button type="submit" class="primary">Salvar</button>
+      </span>
+    </div>
+  </form>
+</dialog>
+
 <div class="toast" id="toast" role="status"><span id="toastMsg"></span><button id="toastBtn">Desfazer</button></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
@@ -608,7 +697,10 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
   async function flush(){
     if(saving || !user){ return; }
     saving = true; dirty = false;
-    const { error } = await sb.from("gastos").upsert({ user_id:user.id, data:state, updated_at:new Date().toISOString() });
+    const alvo = (!profilesOff && prof) ? prof.id : null;
+    const { error } = alvo
+      ? await sb.from("perfis").update({ data:state, updated_at:new Date().toISOString() }).eq("id", alvo)
+      : await sb.from("gastos").upsert({ user_id:user.id, data:state, updated_at:new Date().toISOString() });
     saving = false;
     if(error){ dirty = true; setSync("Erro ao salvar"); showToast("Não foi possível salvar na nuvem. Verifique a internet; vou tentar de novo.", null); clearTimeout(saveTimer); saveTimer=setTimeout(flush, 5000); return; }
     if(dirty){ flush(); return; }
@@ -1620,6 +1712,204 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
   function stopGroups(){ clearInterval(gTimer); groups=[]; space="me"; $("groupView").hidden=true; $("personalView").hidden=false; }
   document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible" && user) loadGroups(); });
 
+  // =================== PERFIS (estilo Netflix) ===================
+  const PCORES = ["#3B82C4","#E8476F","#3FB563","#F2A007","#7A5AC8","#2AA198","#E07B39","#5B6B7B"];
+  let profiles = [], prof = null, profilesOff = false;
+  const sha256 = async s => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)))).map(b=>b.toString(16).padStart(2,"0")).join("");
+  const pinHash = (id,pin) => sha256(id+":"+pin);
+  const principal = () => profiles.find(p=>p.principal);
+  const newId = () => (crypto.randomUUID ? crypto.randomUUID() : "10000000-1000-4000-8000-100000000000".replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)));
+
+  function avatarEl(p){
+    const a=document.createElement("span"); a.className="avatar"; a.style.background=p.cor;
+    a.textContent=(p.nome.trim().charAt(0)||"?").toUpperCase();
+    return a;
+  }
+  async function initProfiles(){
+    const r = await sb.from("perfis").select("id,nome,cor,principal,pin_hash,ordem,criado_em").eq("user_id", user.id).order("ordem",{ascending:true}).order("criado_em",{ascending:true});
+    if(r.error){ if(isMissing(r.error)){ profilesOff=true; return "direct"; } throw r.error; }
+    profiles = r.data||[];
+    if(!profiles.length){
+      // primeira vez: os gastos atuais viram o perfil principal
+      const row={ id:newId(), nome:(myName()||"Principal").slice(0,20), cor:PCORES[0], principal:true, ordem:0, data:state };
+      const ins = await sb.from("perfis").insert(row).select("id,nome,cor,principal,pin_hash,ordem,criado_em").single();
+      if(ins.error) throw ins.error;
+      profiles=[ins.data];
+    }
+    if(profiles.length===1 && !profiles[0].pin_hash){ await openProfile(profiles[0], true); return "opened"; }
+    return "pick";
+  }
+  function showApp(){
+    $("who").hidden=true; $("lock").hidden=true; $("app").hidden=false;
+    $("date").value=today();
+    if(typeof showSpace==="function") showSpace("me");
+    renderChips(); render(); setSync("Salvo na nuvem"); updateProfBtn();
+  }
+  function updateProfBtn(){
+    const b=$("profBtn"); b.innerHTML="";
+    b.hidden = profilesOff || !prof;
+    if(b.hidden) return;
+    const nm=document.createElement("span"); nm.className="nm"; nm.textContent=prof.nome;
+    b.append(avatarEl(prof), nm);
+    b.title=`Perfil: ${prof.nome}. Toque para trocar.`;
+  }
+  async function showWho(){
+    if(dirty||saving) await flush();
+    $("app").hidden=true; $("lock").hidden=true; $("who").hidden=false;
+    const grid=$("whoGrid"); grid.innerHTML="";
+    profiles.forEach((p,i)=>{
+      const b=document.createElement("button"); b.type="button"; b.className="who-btn"; b.style.animationDelay=`${i*60}ms`;
+      const a=avatarEl(p);
+      if(p.pin_hash){ const l=document.createElement("span"); l.className="lockmark"; l.textContent="🔒"; l.setAttribute("aria-hidden","true"); a.append(l); }
+      if(p.principal){ const s=document.createElement("span"); s.className="star"; s.textContent="★"; s.setAttribute("aria-hidden","true"); a.append(s); }
+      const nm=document.createElement("span"); nm.className="nm"; nm.textContent=p.nome;
+      b.append(a,nm);
+      b.setAttribute("aria-label", p.nome + (p.principal?", perfil principal":"") + (p.pin_hash?", protegido por PIN":""));
+      b.onclick=()=>openProfile(p);
+      grid.append(b);
+    });
+    if(profiles.length<6){
+      const b=document.createElement("button"); b.type="button"; b.className="who-btn add";
+      const a=document.createElement("span"); a.className="avatar"; a.textContent="+";
+      const nm=document.createElement("span"); nm.className="nm"; nm.textContent="Adicionar";
+      b.append(a,nm); b.onclick=()=>withManager(()=>openEdit(null));
+      grid.append(b);
+    }
+    const first=grid.querySelector("button"); if(first) first.focus();
+  }
+  async function openProfile(p, skipPin){
+    if(p.pin_hash && !skipPin){ askPin(p, ()=>openProfile(p,true)); return; }
+    if(dirty||saving) await flush();
+    const r = await sb.from("perfis").select("data").eq("id", p.id).single();
+    if(r.error){ showToast("Não foi possível abrir o perfil: "+r.error.message, null); return; }
+    state=normalize(r.data.data); prof=p; viewKey=curKey();
+    showApp();
+  }
+
+  // ----- PIN -----
+  let pinOk=null, pinProfile=null, pinFails=0, pinBlockedUntil=0;
+  function askPin(p, ok, title){
+    pinProfile=p; pinOk=ok;
+    $("pinTitle").textContent = title || `PIN de ${p.nome}`;
+    $("pinSub").textContent = p.principal && title ? "Só o perfil principal pode gerenciar os perfis." : "Este perfil está protegido.";
+    $("pinInput").value=""; $("pinErr").textContent="";
+    $("pinDialog").showModal(); $("pinInput").focus();
+  }
+  $("pinCancel").onclick=()=>$("pinDialog").close();
+  $("pinInput").addEventListener("input", e=>{ e.target.value=e.target.value.replace(/\D/g,"").slice(0,4); if(e.target.value.length===4) $("pinForm").requestSubmit(); });
+  $("pinForm").onsubmit=async e=>{
+    e.preventDefault();
+    if(Date.now()<pinBlockedUntil){ $("pinErr").textContent=`Muitas tentativas. Espere ${Math.ceil((pinBlockedUntil-Date.now())/1000)} segundos.`; return; }
+    const v=$("pinInput").value;
+    if(v.length!==4){ $("pinErr").textContent="O PIN tem 4 números."; return; }
+    if(await pinHash(pinProfile.id, v) === pinProfile.pin_hash){
+      pinFails=0; $("pinDialog").close(); const f=pinOk; pinOk=null; f && f();
+    } else {
+      pinFails++; $("pinInput").value="";
+      if(pinFails>=5){ pinBlockedUntil=Date.now()+30000; pinFails=0; $("pinErr").textContent="PIN errado 5 vezes. Espere 30 segundos."; }
+      else $("pinErr").textContent="PIN errado. Tente de novo.";
+    }
+  };
+
+  // ----- gerenciar -----
+  function withManager(fn){
+    const pr=principal();
+    if(prof && prof.principal) return fn();
+    if(pr && pr.pin_hash) return askPin(pr, fn, `PIN de ${pr.nome}`);
+    fn();
+  }
+  function openManage(){
+    const ul=$("profList"); ul.innerHTML="";
+    profiles.forEach(p=>{
+      const li=document.createElement("li");
+      const info=document.createElement("div"); info.className="info";
+      const st=document.createElement("strong"); st.textContent=p.nome;
+      const sm=document.createElement("small"); sm.textContent=[p.principal?"Principal":"", p.pin_hash?"Com PIN":"Sem PIN"].filter(Boolean).join(", ");
+      info.append(st,sm);
+      const ed=document.createElement("button"); ed.type="button"; ed.className="ghost"; ed.textContent="Editar";
+      ed.onclick=()=>{ $("profManage").close(); openEdit(p); };
+      li.append(avatarEl(p), info, ed); ul.append(li);
+    });
+    $("profAdd").disabled = profiles.length>=6;
+    $("profAdd").textContent = profiles.length>=6 ? "Limite de 6 perfis" : "+ Adicionar perfil";
+    $("profManage").showModal();
+  }
+  $("profManageClose").onclick=()=>{ $("profManage").close(); if(!$("who").hidden) showWho(); };
+  $("profAdd").onclick=()=>{ $("profManage").close(); openEdit(null); };
+  $("whoManage").onclick=()=>withManager(openManage);
+  $("whoLogout").onclick=()=>$("logoutBtn").click();
+  $("profBtn").onclick=()=>showWho();
+  $("profToolBtn").onclick=()=>{ if(profilesOff){ showToast("Falta rodar o SQL dos perfis no Supabase.", null); return; } withManager(openManage); };
+
+  let editing=null, peColor=PCORES[1];
+  function openEdit(p){
+    editing=p;
+    $("peTitle").textContent = p ? `Editar ${p.nome}` : "Novo perfil";
+    $("peName").value = p ? p.nome : "";
+    peColor = p ? p.cor : PCORES[profiles.length % PCORES.length];
+    $("pePin").value=""; $("pePin2").value=""; $("peErr").textContent="";
+    $("pePin").placeholder = p && p.pin_hash ? "Trocar PIN" : "Novo PIN";
+    $("peNoPin").hidden = !(p && p.pin_hash);
+    $("peDelete").hidden = !p || p.principal;
+    const sg=$("peSuggest"); sg.innerHTML="";
+    if(!p) ["Esposa","Marido","Conjunta","Casa","Filho(a)"].filter(n=>!profiles.some(x=>x.nome.toLowerCase()===n.toLowerCase())).forEach(n=>{
+      const b=document.createElement("button"); b.type="button"; b.textContent=n; b.onclick=()=>{ $("peName").value=n; }; sg.append(b);
+    });
+    renderSwatches();
+    $("profEdit").showModal(); $("peName").focus();
+  }
+  function renderSwatches(){
+    const box=$("peColors"); box.innerHTML="";
+    PCORES.forEach(c=>{ const b=document.createElement("button"); b.type="button"; b.className="swatch"; b.style.background=c; b.setAttribute("aria-label","Cor "+c); b.setAttribute("aria-pressed",String(c===peColor)); b.onclick=()=>{ peColor=c; renderSwatches(); }; box.append(b); });
+  }
+  ["pePin","pePin2"].forEach(id=>$(id).addEventListener("input",e=>{ e.target.value=e.target.value.replace(/\D/g,"").slice(0,4); }));
+  $("peCancel").onclick=()=>$("profEdit").close();
+  $("peNoPin").onclick=async()=>{
+    if(!editing || !confirm(`Remover o PIN de ${editing.nome}? Qualquer pessoa com acesso à conta poderá abrir este perfil.`)) return;
+    const r=await sb.from("perfis").update({pin_hash:null}).eq("id",editing.id);
+    if(r.error){ $("peErr").textContent=r.error.message; return; }
+    editing.pin_hash=null; $("profEdit").close(); afterProfilesChanged("PIN removido.");
+  };
+  $("peDelete").onclick=async()=>{
+    if(!editing || editing.principal) return;
+    if(!confirm(`Apagar o perfil “${editing.nome}” e todos os gastos dele? Não dá para desfazer.`)) return;
+    const r=await sb.from("perfis").delete().eq("id",editing.id);
+    if(r.error){ $("peErr").textContent=r.error.message; return; }
+    profiles=profiles.filter(x=>x.id!==editing.id);
+    if(prof && prof.id===editing.id) prof=null;
+    $("profEdit").close(); afterProfilesChanged("Perfil apagado.");
+  };
+  $("peForm").onsubmit=async e=>{
+    e.preventDefault();
+    const nome=$("peName").value.trim(); const pin=$("pePin").value, pin2=$("pePin2").value;
+    if(!nome){ $("peErr").textContent="Dê um nome ao perfil."; $("peName").focus(); return; }
+    if(profiles.some(x=>x!==editing && x.nome.toLowerCase()===nome.toLowerCase())){ $("peErr").textContent="Já existe um perfil com esse nome."; return; }
+    if(pin || pin2){
+      if(pin.length!==4){ $("peErr").textContent="O PIN precisa ter 4 números."; return; }
+      if(pin!==pin2){ $("peErr").textContent="Os dois PINs não são iguais."; return; }
+    }
+    if(editing){
+      const upd={ nome, cor:peColor }; if(pin) upd.pin_hash=await pinHash(editing.id, pin);
+      const r=await sb.from("perfis").update(upd).eq("id",editing.id);
+      if(r.error){ $("peErr").textContent=r.error.message; return; }
+      Object.assign(editing, upd);
+      $("profEdit").close(); afterProfilesChanged("Perfil atualizado.");
+    } else {
+      const id=newId();
+      const row={ id, nome, cor:peColor, principal:false, ordem:profiles.length, data:{ budget:0, months:{}, commits:[] }, pin_hash: pin ? await pinHash(id,pin) : null };
+      const r=await sb.from("perfis").insert(row).select("id,nome,cor,principal,pin_hash,ordem,criado_em").single();
+      if(r.error){ $("peErr").textContent = /Limite/.test(r.error.message) ? "Limite de 6 perfis por conta." : r.error.message; return; }
+      profiles.push(r.data);
+      $("profEdit").close(); afterProfilesChanged(`Perfil “${nome}” criado.`);
+    }
+  };
+  function afterProfilesChanged(msg){
+    updateProfBtn();
+    if(!$("who").hidden || !prof) showWho();
+    showToast(msg, null);
+  }
+  function resetProfiles(){ profiles=[]; prof=null; profilesOff=false; $("who").hidden=true; updateProfBtn(); }
+
   async function enter(u){
     if(user && user.id===u.id) return;
     user=u;
@@ -1635,14 +1925,18 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     $("importLocal").hidden = !localOld();
     $("authPw").value=""; $("authPw2").value="";
     viewKey=curKey();
-    $("app").hidden=false; $("date").value=today();
-    renderChips(); render(); setSync("Salvo na nuvem");
+    let modo="direct";
+    try{ modo = await initProfiles(); }
+    catch(err){ showToast("Não foi possível carregar os perfis: "+((err&&err.message)||err), null); profilesOff=true; }
+    if(modo==="pick") showWho();
+    else if(modo==="direct"){ $("app").hidden=false; $("date").value=today(); renderChips(); render(); setSync("Salvo na nuvem"); }
     startInbox();
     startGroups();
   }
   function leave(){
     stopInbox();
     stopGroups();
+    resetProfiles();
     user=null; state={ budget:0, months:{}, commits:[] };
     $("app").hidden=true; $("lock").hidden=false; setMode("login");
   }
