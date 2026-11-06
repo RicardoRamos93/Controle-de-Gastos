@@ -197,6 +197,36 @@ html,body{height:100%}
 #scDialog{max-width:440px}
 #scDialog label{display:block;font-size:.85rem;color:var(--muted);margin-bottom:4px}
 @media (max-width:480px){.rcv-grid{grid-template-columns:1fr}}
+/* espaços: pessoal e grupos */
+.spaces{display:flex;gap:8px;overflow-x:auto;margin:-12px 0 24px;padding-bottom:4px;scrollbar-width:none}
+.spaces::-webkit-scrollbar{display:none}
+.space{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-size:.92rem;white-space:nowrap}
+.space[aria-current="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.space.add-space{border-style:dashed;background:none}
+.ghead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:22px}
+.ghead h2{font-family:var(--display);font-weight:800;font-size:1.6rem;margin:0;line-height:1.1}
+.ghead p{margin:4px 0 0;color:var(--muted);font-size:.9rem}
+.ghead .ghead-actions{display:flex;gap:8px;flex:none}
+.big.pos{color:var(--ok)}
+.debts{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.debts li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.debts li span b{font-variant-numeric:tabular-nums}
+.split{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:14px;background:var(--bg)}
+.split-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:6px 0}
+.split-row+.split-row{border-top:1px solid var(--line)}
+.split-row input[type=checkbox]{width:20px;height:20px;accent-color:var(--ink)}
+.split-row input[type=text]{width:110px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:right}
+.split-row .share{font-variant-numeric:tabular-nums;color:var(--muted)}
+.split-foot{font-size:.85rem;color:var(--muted);margin-top:6px;text-align:right}
+.split-foot.bad{color:var(--bad)}
+.items .who{color:var(--muted);font-size:.85rem}
+.items li.settle .desc strong{font-style:italic}
+.pill-note{display:inline-block;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:.8rem;color:var(--muted)}
+.code-big{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:1.6rem;letter-spacing:.12em;text-align:center;background:var(--bg);border:1px dashed var(--line);border-radius:12px;padding:12px;margin:0 0 12px;user-select:all}
+#groupDialog .seg{margin-bottom:14px}
+#groupDialog label{display:block;font-size:.85rem;color:var(--muted);margin-bottom:4px}
+.danger-link{background:none;border:none;color:var(--bad);text-decoration:underline;text-underline-offset:3px;padding:6px 0}
+@media (max-width:480px){.ghead{flex-direction:column}.split-row input[type=text]{width:90px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -257,6 +287,74 @@ html,body{height:100%}
     </div>
   </header>
 
+  <nav class="spaces" id="spaces" aria-label="Escolher entre gastos pessoais e grupos"></nav>
+
+  <div id="groupView" hidden>
+    <section class="ghead">
+      <div>
+        <h2 id="gName"></h2>
+        <p id="gMembers"></p>
+      </div>
+      <div class="ghead-actions">
+        <button class="ghost" id="gInvite">Convidar</button>
+      </div>
+    </section>
+
+    <section class="hero" aria-live="polite">
+      <p class="hero-line" id="gHeroLine"></p>
+      <p class="big" id="gBig"></p>
+      <p class="sub" id="gSub"></p>
+      <div class="bar" id="gBar" role="img"></div>
+      <ul class="legend" id="gLegend"></ul>
+    </section>
+
+    <section class="section">
+      <h2>Quem deve a quem</h2>
+      <div id="gDebts"></div>
+    </section>
+
+    <section class="add">
+      <h2>Novo gasto do grupo</h2>
+      <form id="gForm" novalidate>
+        <div class="row">
+          <label class="f">Valor (R$)
+            <input type="text" inputmode="decimal" class="amount" id="gAmount" placeholder="0,00" autocomplete="off">
+          </label>
+          <label class="f">Descrição
+            <input type="text" id="gDesc" placeholder="Ex.: mercado do mês" maxlength="80" autocomplete="off">
+          </label>
+        </div>
+        <div class="chips" id="gChips" role="group" aria-label="Categoria"></div>
+        <div class="row">
+          <label class="f">Quem pagou
+            <select id="gPayer"></select>
+          </label>
+          <label class="f">Data
+            <input type="date" id="gDate">
+          </label>
+        </div>
+        <div class="seg" role="group" aria-label="Como dividir">
+          <button type="button" data-split="igual" aria-pressed="true">Dividir igual</button>
+          <button type="button" data-split="valores" aria-pressed="false">Valores diferentes</button>
+        </div>
+        <div class="split" id="gSplit"></div>
+        <button class="primary" type="submit">Adicionar ao grupo</button>
+        <p class="err" id="gErr" role="alert"></p>
+      </form>
+    </section>
+
+    <section class="section">
+      <h2>Gastos do grupo no mês</h2>
+      <div id="gList"></div>
+    </section>
+
+    <section class="section">
+      <button type="button" class="danger-link" id="gLeave">Sair deste grupo</button>
+    </section>
+  </div>
+
+  <div id="personalView">
+
   <section class="hero" aria-live="polite">
     <p class="hero-line" id="heroLine">Gasto no mês</p>
     <p class="big" id="big">R$ 0,00</p>
@@ -267,6 +365,7 @@ html,body{height:100%}
       <button class="ghost" type="button" id="budgetCancel">Cancelar</button>
     </form>
     <p class="forecast-note" id="fnote" hidden></p>
+    <p class="forecast-note" id="grpNote" hidden></p>
     <div class="bar" id="bar" role="img" aria-label="Distribuição dos gastos"></div>
     <ul class="legend" id="legend"></ul>
   </section>
@@ -345,6 +444,8 @@ html,body{height:100%}
     <div class="hist" id="hist"></div>
   </section>
 
+  </div><!-- /personalView -->
+
   <section class="section">
     <h2>Dados e segurança</h2>
     <p class="forecast-note" style="margin:0 0 14px" id="acctNote">Seus gastos ficam salvos na sua conta e aparecem em qualquer aparelho em que você entrar.</p>
@@ -389,6 +490,45 @@ html,body{height:100%}
     <span style="display:flex;gap:8px">
       <button type="button" class="ghost" id="scTest">Enviar teste</button>
       <button type="button" class="primary" id="scClose">Fechar</button>
+    </span>
+  </div>
+</dialog>
+
+<dialog id="groupDialog">
+  <h2>Grupos</h2>
+  <div class="seg" role="group" aria-label="Criar ou entrar">
+    <button type="button" data-gmode="criar" aria-pressed="true">Criar grupo</button>
+    <button type="button" data-gmode="entrar" aria-pressed="false">Entrar com código</button>
+  </div>
+  <form id="gdForm">
+    <div id="gdCreate">
+      <label for="gdName">Nome do grupo</label>
+      <input type="text" id="gdName" maxlength="40" placeholder="Ex.: Casa, Viagem Porto de Galinhas">
+    </div>
+    <div id="gdJoin" hidden>
+      <label for="gdCode">Código de convite</label>
+      <input type="text" id="gdCode" maxlength="14" placeholder="Ex.: 4F2A9C01BE" autocapitalize="characters" autocomplete="off">
+    </div>
+    <label for="gdMe">Seu nome no grupo</label>
+    <input type="text" id="gdMe" maxlength="30" placeholder="Como os outros vão te ver">
+    <p class="err" id="gdErr" role="alert"></p>
+    <div class="dlg-actions">
+      <button type="button" class="ghost" id="gdCancel">Cancelar</button>
+      <button type="submit" class="primary" id="gdOk">Criar grupo</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="inviteDialog">
+  <h2>Convidar para o grupo</h2>
+  <p>Mande este código para quem você quer no grupo. A pessoa entra na conta dela, toca em “+ Grupo” e escolhe “Entrar com código”.</p>
+  <div class="code-big" id="ivCode"></div>
+  <p class="err" id="ivErr" role="alert"></p>
+  <div class="dlg-actions" style="justify-content:space-between;flex-wrap:wrap">
+    <button type="button" class="ghost" id="ivNew">Gerar novo código</button>
+    <span style="display:flex;gap:8px">
+      <button type="button" class="ghost" id="ivClose">Fechar</button>
+      <button type="button" class="primary" id="ivShare">Compartilhar</button>
     </span>
   </div>
 </dialog>
@@ -608,6 +748,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     renderCommits(active);
     renderList(items, isFuture);
     renderHist(now);
+    if(typeof updateGrpNote==="function" && user) updateGrpNote();
   }
 
   function renderCommits(active){
@@ -796,8 +937,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     showToast("Gasto apagado.", ()=>{ (state.months[k] ||= []).push(gone); saveMonth(k); render(); });
   }
 
-  $("prev").onclick=()=>{ viewKey=shiftKey(viewKey,-1); render(); };
-  $("next").onclick=()=>{ viewKey=shiftKey(viewKey,1); render(); };
+  $("prev").onclick=()=>{ viewKey=shiftKey(viewKey,-1); refreshView(); };
+  $("next").onclick=()=>{ viewKey=shiftKey(viewKey,1); refreshView(); };
 
   function buildCSV(){
     const rows=[["Data","Descrição","Categoria","Valor (R$)"]];
@@ -1112,6 +1253,373 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     else { inp.select(); document.execCommand("copy"); done(); }
   });
 
+  // =================== GRUPOS COMPARTILHADOS ===================
+  let groups = [], groupsOff = false, space = "me", gTimer = null;
+  let gCat = "mercado", gSplitMode = "igual", gSplit = {}; // gSplit[uid] = {on:bool, val:""}
+  const shortDate = new Intl.DateTimeFormat("pt-BR",{day:"numeric",month:"short"});
+  const isMissing = e => /does not exist|schema cache|Could not find/i.test((e&&e.message)||"");
+  const curGroup = () => groups.find(g=>g.id===space);
+  const nameOf = (g,id) => id===user.id ? "Você" : ((g.membros.find(m=>m.user_id===id)||{}).nome || "Ex-membro");
+  const myName = () => { const e=(user&&user.email)||""; const n=e.split("@")[0].replace(/[._-]+/g," ").trim(); return n.replace(/\b\p{L}/gu, c=>c.toUpperCase()); };
+
+  async function loadGroups(){
+    if(!user || groupsOff) return;
+    const mine = await sb.from("membros_grupo").select("grupo_id").eq("user_id", user.id);
+    if(mine.error){ if(isMissing(mine.error)) groupsOff = true; renderSpaces(); return; }
+    const ids = (mine.data||[]).map(r=>r.grupo_id);
+    if(!ids.length){ groups = []; afterGroupsLoaded(); return; }
+    const [g, m, e] = await Promise.all([
+      sb.from("grupos").select("id,nome,convite,criado_em").in("id", ids),
+      sb.from("membros_grupo").select("grupo_id,user_id,nome,entrou_em").in("grupo_id", ids),
+      sb.from("gastos_grupo").select("id,grupo_id,tipo,pago_por,valor,descricao,categoria,data,divisao,criado_por,criado_em").in("grupo_id", ids).order("data",{ascending:false}).order("criado_em",{ascending:false})
+    ]);
+    if(g.error || m.error || e.error) return;
+    groups = (g.data||[]).sort((a,b)=>a.criado_em.localeCompare(b.criado_em)).map(gr=>({
+      ...gr,
+      membros: (m.data||[]).filter(x=>x.grupo_id===gr.id).sort((a,b)=>a.entrou_em.localeCompare(b.entrou_em)),
+      gastos: (e.data||[]).filter(x=>x.grupo_id===gr.id)
+    }));
+    afterGroupsLoaded();
+  }
+  function afterGroupsLoaded(){
+    if(space!=="me" && !curGroup()) space = "me";
+    renderSpaces();
+    if(space==="me") updateGrpNote(); else renderGroup();
+  }
+
+  function renderSpaces(){
+    const nav=$("spaces"); nav.innerHTML="";
+    nav.hidden = groupsOff;
+    if(groupsOff) return;
+    const mk=(label,id,cls)=>{ const b=document.createElement("button"); b.type="button"; b.className="space"+(cls?" "+cls:""); b.textContent=label;
+      if(id) b.setAttribute("aria-current", String(space===id)); return b; };
+    const me=mk("Meus gastos","me"); me.onclick=()=>showSpace("me"); nav.append(me);
+    groups.forEach(g=>{ const b=mk(g.nome,g.id); b.onclick=()=>showSpace(g.id); nav.append(b); });
+    const add=mk("+ Grupo",null,"add-space"); add.onclick=openGroupDialog; nav.append(add);
+  }
+  function showSpace(id){
+    space=id; renderSpaces();
+    $("personalView").hidden = id!=="me";
+    $("groupView").hidden = id==="me";
+    if(id==="me") render(); else { resetGroupForm(); renderGroup(); }
+    window.scrollTo({top:0});
+  }
+  function refreshView(){ if(space==="me") render(); else renderGroup(); }
+
+  // ----- contas do grupo -----
+  function balances(g){
+    const b={}; g.membros.forEach(m=>b[m.user_id]=0);
+    g.gastos.forEach(x=>{
+      b[x.pago_por]=(b[x.pago_por]||0)+x.valor;
+      for(const [u,c] of Object.entries(x.divisao||{})) b[u]=(b[u]||0)-Number(c);
+    });
+    return b;
+  }
+  function simplify(b){
+    const cred=[], deb=[];
+    for(const [u,v] of Object.entries(b)){ if(v>0) cred.push({u,v}); else if(v<0) deb.push({u,v:-v}); }
+    cred.sort((a,c)=>c.v-a.v); deb.sort((a,c)=>c.v-a.v);
+    const out=[]; let i=0,j=0;
+    while(i<deb.length && j<cred.length){
+      const x=Math.min(deb[i].v, cred[j].v);
+      if(x>0) out.push({de:deb[i].u, para:cred[j].u, v:x});
+      deb[i].v-=x; cred[j].v-=x;
+      if(!deb[i].v) i++; if(!cred[j].v) j++;
+    }
+    return out;
+  }
+  function myShareMonth(k){
+    let t=0;
+    groups.forEach(g=>g.gastos.forEach(x=>{ if(x.tipo==="gasto" && x.data.slice(0,7)===k) t+=Number((x.divisao||{})[user.id]||0); }));
+    return t;
+  }
+  function updateGrpNote(){
+    const el=$("grpNote"); if(!el) return;
+    const t = groups.length ? myShareMonth(viewKey) : 0;
+    el.hidden = !t;
+    if(t) el.textContent = `Fora isso, sua parte nos gastos de grupos neste mês é ${money(t)}.`;
+  }
+
+  // ----- tela do grupo -----
+  function renderGroup(){
+    const g=curGroup(); if(!g) return;
+    const {y,m}=parseKey(viewKey);
+    { const s=monthFmt.format(new Date(y,m,1)); $("monthLabel").textContent=s.charAt(0).toUpperCase()+s.slice(1); }
+    $("gName").textContent=g.nome;
+    $("gMembers").textContent = g.membros.map(x=>x.user_id===user.id?"Você":x.nome).join(", ");
+
+    const b=balances(g); const mine=b[user.id]||0;
+    const big=$("gBig"); big.classList.remove("over","pos");
+    if(mine>0){ $("gHeroLine").textContent="Você tem a receber"; big.textContent=money(mine); big.classList.add("pos"); }
+    else if(mine<0){ $("gHeroLine").textContent="Você deve no grupo"; big.textContent=money(-mine); big.classList.add("over"); }
+    else { $("gHeroLine").textContent="Suas contas no grupo"; big.textContent="Tudo acertado"; }
+
+    const items=g.gastos.filter(x=>x.data.slice(0,7)===viewKey);
+    const gastos=items.filter(x=>x.tipo==="gasto");
+    const total=gastos.reduce((s,x)=>s+x.valor,0);
+    const myPart=gastos.reduce((s,x)=>s+Number((x.divisao||{})[user.id]||0),0);
+    $("gSub").textContent = total ? `O grupo gastou ${money(total)} em ${mName(viewKey)}. Sua parte: ${money(myPart)}.` : `Nenhum gasto do grupo em ${mName(viewKey)}.`;
+    const by={}; gastos.forEach(x=>by[x.categoria]=(by[x.categoria]||0)+x.valor);
+    const bar=$("gBar"), lg=$("gLegend"); bar.innerHTML=""; lg.innerHTML="";
+    CATS.filter(c=>by[c.id]).sort((a,c)=>by[c.id]-by[a.id]).forEach(c=>{
+      const s=document.createElement("span"); s.style.background=c.color; s.style.flex=`0 0 ${by[c.id]/(total||1)*100}%`; s.title=`${c.name}: ${money(by[c.id])}`; bar.append(s);
+      const li=document.createElement("li"); li.innerHTML=`<span class="dot" style="background:${c.color}"></span>`; li.append(c.name+" ");
+      const bb=document.createElement("b"); bb.textContent=money(by[c.id]); li.append(bb); lg.append(li);
+    });
+    bar.hidden = !total;
+    bar.setAttribute("aria-label", total ? Object.entries(by).map(([k,v])=>`${(CAT[k]||CAT.outros).name} ${money(v)}`).join(", ") : "Sem gastos");
+
+    // dívidas
+    const box=$("gDebts"); box.innerHTML="";
+    const ds=simplify(b);
+    if(!ds.length){ const p=document.createElement("p"); p.className="empty"; p.textContent = g.gastos.length ? "Ninguém deve nada a ninguém." : "Quando alguém lançar um gasto, aparece aqui quem deve para quem."; box.append(p); }
+    else {
+      const ul=document.createElement("ul"); ul.className="debts";
+      ds.forEach(d=>{
+        const li=document.createElement("li");
+        const t=document.createElement("span");
+        const de=nameOf(g,d.de), para=nameOf(g,d.para);
+        t.append(`${de} ${d.de===user.id?"deve":"deve"} `); const bb=document.createElement("b"); bb.textContent=money(d.v); t.append(bb, ` para ${para==="Você"?"você":para}`);
+        li.append(t);
+        if(d.de===user.id || d.para===user.id){
+          const btn=document.createElement("button"); btn.className="ghost"; btn.textContent = d.para===user.id ? "Recebi" : "Paguei";
+          btn.onclick=()=>settle(g,d,btn);
+          li.append(btn);
+        }
+        ul.append(li);
+      });
+      box.append(ul);
+    }
+
+    // lista do mês
+    const list=$("gList"); list.innerHTML="";
+    if(!items.length){ const p=document.createElement("p"); p.className="empty"; p.textContent="Nada lançado neste mês."; list.append(p); }
+    else {
+      const ul=document.createElement("ul"); ul.className="items";
+      items.forEach(x=>{
+        const li=document.createElement("li");
+        const dot=document.createElement("span"); dot.className="dot";
+        const d=document.createElement("div"); d.className="desc";
+        const st=document.createElement("strong"); const sm=document.createElement("small"); sm.className="who";
+        const [yy,mm,dd]=x.data.split("-").map(Number); const quando=shortDate.format(new Date(yy,mm-1,dd)).replace(".","");
+        if(x.tipo==="acerto"){
+          li.className="settle"; dot.style.background="var(--ok)";
+          const para=Object.keys(x.divisao||{})[0];
+          st.textContent=`${nameOf(g,x.pago_por)} pagou ${nameOf(g,para)==="Você"?"você":nameOf(g,para)}`;
+          sm.textContent=`Acerto de contas, ${quando}`;
+        } else {
+          const c=CAT[x.categoria]||CAT.outros; dot.style.background=c.color;
+          st.textContent=x.descricao||c.name;
+          const parte=Number((x.divisao||{})[user.id]||0);
+          sm.textContent=`${nameOf(g,x.pago_por)} pagou, ${quando}` + (parte?`. Sua parte: ${money(parte)}`:". Você não participa");
+        }
+        d.append(st,sm);
+        const v=document.createElement("span"); v.className="val"; v.textContent=money(x.valor);
+        li.append(dot,d,v);
+        if(x.criado_por===user.id || x.pago_por===user.id){
+          const del=document.createElement("button"); del.className="del"; del.textContent="✕";
+          del.setAttribute("aria-label",`Apagar ${st.textContent}, ${money(x.valor)}`);
+          del.onclick=()=>deleteGroupItem(g,x);
+          li.append(del);
+        } else li.append(document.createElement("span"));
+        ul.append(li);
+      });
+      list.append(ul);
+    }
+    renderSplit();
+  }
+
+  // ----- formulário de gasto do grupo -----
+  function resetGroupForm(){
+    const g=curGroup(); if(!g) return;
+    gSplit={}; g.membros.forEach(m=>gSplit[m.user_id]={on:true,val:""});
+    $("gAmount").value=""; $("gDesc").value=""; $("gErr").textContent="";
+    $("gDate").value=today();
+    const sel=$("gPayer"); sel.innerHTML="";
+    g.membros.forEach(m=>{ const o=document.createElement("option"); o.value=m.user_id; o.textContent=m.user_id===user.id?"Você":m.nome; sel.append(o); });
+    sel.value=user.id;
+    renderGChips();
+  }
+  function renderGChips(){
+    const box=$("gChips"); box.innerHTML="";
+    CATS.forEach(c=>{
+      const b=document.createElement("button"); b.type="button"; b.className="chip"; b.setAttribute("aria-pressed",String(c.id===gCat));
+      b.innerHTML=`<span class="dot" style="background:${c.color}"></span>`; b.append(c.name);
+      b.onclick=()=>{ gCat=c.id; renderGChips(); };
+      box.append(b);
+    });
+  }
+  document.querySelectorAll("[data-split]").forEach(b=>b.onclick=()=>{
+    gSplitMode=b.dataset.split;
+    document.querySelectorAll("[data-split]").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
+    renderSplit();
+  });
+  $("gAmount").addEventListener("input", ()=>updateSplitNumbers());
+  function equalShares(total, ids){
+    const out={}; if(!ids.length) return out;
+    const base=Math.floor(total/ids.length); let rest=total-base*ids.length;
+    ids.forEach(id=>{ out[id]=base+(rest>0?1:0); if(rest>0) rest--; });
+    return out;
+  }
+  function renderSplit(){
+    const g=curGroup(); if(!g) return;
+    const box=$("gSplit"); box.innerHTML="";
+    g.membros.forEach(m=>{
+      const s=gSplit[m.user_id] ||= {on:true,val:""};
+      const row=document.createElement("label"); row.className="split-row";
+      const cb=document.createElement("input"); cb.type="checkbox"; cb.checked=s.on;
+      cb.onchange=()=>{ s.on=cb.checked; renderSplit(); };
+      const nm=document.createElement("span"); nm.textContent=m.user_id===user.id?"Você":m.nome;
+      row.append(cb,nm);
+      if(gSplitMode==="valores"){
+        const inp=document.createElement("input"); inp.type="text"; inp.inputMode="decimal"; inp.placeholder="0,00"; inp.value=s.val; inp.disabled=!s.on;
+        inp.setAttribute("aria-label",`Parte de ${nm.textContent}`);
+        inp.oninput=()=>{ s.val=inp.value; updateSplitNumbers(); };
+        row.append(inp);
+      } else {
+        const sh=document.createElement("span"); sh.className="share"; sh.dataset.uid=m.user_id; row.append(sh);
+      }
+      box.append(row);
+    });
+    const foot=document.createElement("div"); foot.className="split-foot"; foot.id="gSplitFoot"; box.append(foot);
+    updateSplitNumbers();
+  }
+  function currentDivision(){
+    const g=curGroup(); const total=parseMoney($("gAmount").value);
+    const ids=g.membros.map(m=>m.user_id).filter(id=>gSplit[id]&&gSplit[id].on);
+    if(gSplitMode==="igual") return { total, div: isNaN(total)?{}:equalShares(total, ids), ids };
+    const div={}; ids.forEach(id=>{ const v=parseMoney(gSplit[id].val); div[id]=isNaN(v)?0:v; });
+    return { total, div, ids };
+  }
+  function updateSplitNumbers(){
+    const foot=$("gSplitFoot"); if(!foot) return;
+    const {total, div, ids}=currentDivision();
+    foot.classList.remove("bad");
+    if(gSplitMode==="igual"){
+      document.querySelectorAll("#gSplit .share").forEach(el=>{ const v=div[el.dataset.uid]; el.textContent = (v!=null && !isNaN(total)) ? money(v) : (gSplit[el.dataset.uid].on?"":"fora"); });
+      foot.textContent = ids.length ? (isNaN(total)?`Dividido entre ${ids.length} ${ids.length===1?"pessoa":"pessoas"}`:"") : "Marque pelo menos uma pessoa.";
+      if(!ids.length) foot.classList.add("bad");
+    } else {
+      const soma=Object.values(div).reduce((a,b)=>a+b,0);
+      if(isNaN(total)){ foot.textContent=`Soma das partes: ${money(soma)}`; return; }
+      const dif=total-soma;
+      foot.textContent = dif===0 ? "As partes fecham com o valor." : dif>0 ? `Faltam ${money(dif)} para fechar.` : `Passou ${money(-dif)} do valor.`;
+      if(dif!==0) foot.classList.add("bad");
+    }
+  }
+  $("gForm").onsubmit=async e=>{
+    e.preventDefault();
+    const g=curGroup(); if(!g) return;
+    const err=$("gErr"); err.textContent="";
+    const {total, div, ids}=currentDivision();
+    if(isNaN(total)||total<=0){ err.textContent="Digite um valor maior que zero."; $("gAmount").focus(); return; }
+    if(!ids.length){ err.textContent="Marque quem participa do gasto."; return; }
+    const clean={}; Object.entries(div).forEach(([k,v])=>{ if(v>0) clean[k]=v; });
+    const soma=Object.values(clean).reduce((a,b)=>a+b,0);
+    if(soma!==total){ err.textContent="As partes precisam somar o valor total."; return; }
+    const btn=e.submitter || $("gForm").querySelector("button[type=submit]"); btn.disabled=true;
+    const row={ grupo_id:g.id, tipo:"gasto", pago_por:$("gPayer").value, valor:total, descricao:$("gDesc").value.trim().slice(0,80), categoria:gCat, data:$("gDate").value||today(), divisao:clean };
+    const { data, error } = await sb.from("gastos_grupo").insert(row).select().single();
+    btn.disabled=false;
+    if(error){ err.textContent="Não foi possível salvar: "+error.message; return; }
+    g.gastos.unshift(data); g.gastos.sort((a,b)=>b.data.localeCompare(a.data)||b.criado_em.localeCompare(a.criado_em));
+    viewKey=data.data.slice(0,7);
+    $("gAmount").value=""; $("gDesc").value=""; Object.values(gSplit).forEach(s=>{ s.val=""; s.on=true; }); $("gPayer").value=user.id;
+    renderGroup(); showToast(`${money(total)} lançado no grupo.`, null);
+  };
+  async function deleteGroupItem(g,x){
+    if(!confirm(`Apagar “${x.tipo==="acerto"?"acerto de contas":(x.descricao||"gasto")}” de ${money(x.valor)}? Isso muda as contas de todo o grupo.`)) return;
+    const { error } = await sb.from("gastos_grupo").delete().eq("id", x.id);
+    if(error){ showToast("Não foi possível apagar: "+error.message, null); return; }
+    g.gastos=g.gastos.filter(i=>i.id!==x.id); renderGroup(); showToast("Apagado.", null);
+  }
+  async function settle(g,d,btn){
+    const quem = d.para===user.id ? `que ${nameOf(g,d.de)} te pagou` : `que você pagou ${nameOf(g,d.para)}`;
+    if(!confirm(`Registrar ${quem} ${money(d.v)}?`)) return;
+    btn.disabled=true;
+    const row={ grupo_id:g.id, tipo:"acerto", pago_por:d.de, valor:d.v, descricao:"Acerto de contas", categoria:"outros", data:today(), divisao:{[d.para]:d.v} };
+    const { data, error } = await sb.from("gastos_grupo").insert(row).select().single();
+    btn.disabled=false;
+    if(error){ showToast("Não foi possível registrar: "+error.message, null); return; }
+    g.gastos.unshift(data); renderGroup(); showToast("Pagamento registrado.", null);
+  }
+  $("gLeave").onclick=async()=>{
+    const g=curGroup(); if(!g) return;
+    const mine=balances(g)[user.id]||0;
+    const aviso = mine ? ` Atenção: você ainda ${mine>0?"tem a receber":"deve"} ${money(Math.abs(mine))} neste grupo.` : "";
+    if(!confirm(`Sair do grupo “${g.nome}”?${aviso} Você deixa de ver os gastos dele.`)) return;
+    const { error } = await sb.rpc("sair_grupo", { p_grupo:g.id });
+    if(error){ showToast("Não foi possível sair: "+error.message, null); return; }
+    groups=groups.filter(x=>x.id!==g.id); showSpace("me"); showToast("Você saiu do grupo.", null);
+  };
+
+  // ----- criar / entrar -----
+  const gd=$("groupDialog"); let gdMode="criar";
+  function setGdMode(mo){
+    gdMode=mo;
+    document.querySelectorAll("[data-gmode]").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.gmode===mo)));
+    $("gdCreate").hidden = mo!=="criar"; $("gdJoin").hidden = mo!=="entrar";
+    $("gdOk").textContent = mo==="criar" ? "Criar grupo" : "Entrar no grupo";
+    $("gdErr").textContent="";
+  }
+  document.querySelectorAll("[data-gmode]").forEach(b=>b.onclick=()=>setGdMode(b.dataset.gmode));
+  function openGroupDialog(){
+    if(groupsOff){ showToast("Falta rodar o SQL dos grupos no Supabase.", null); return; }
+    $("gdName").value=""; $("gdCode").value=""; if(!$("gdMe").value) $("gdMe").value=myName();
+    setGdMode("criar"); gd.showModal(); $("gdName").focus();
+  }
+  $("gdCancel").onclick=()=>gd.close();
+  $("gdForm").onsubmit=async e=>{
+    e.preventDefault();
+    const me=$("gdMe").value.trim();
+    if(!me){ $("gdErr").textContent="Diga seu nome para o grupo."; $("gdMe").focus(); return; }
+    let res;
+    if(gdMode==="criar"){
+      const nome=$("gdName").value.trim();
+      if(!nome){ $("gdErr").textContent="Dê um nome ao grupo."; $("gdName").focus(); return; }
+      res = await sb.rpc("criar_grupo", { p_nome:nome, p_meu_nome:me });
+    } else {
+      const code=$("gdCode").value.trim();
+      if(!code){ $("gdErr").textContent="Cole o código que você recebeu."; $("gdCode").focus(); return; }
+      res = await sb.rpc("entrar_grupo", { p_convite:code, p_meu_nome:me });
+    }
+    if(res.error){ $("gdErr").textContent = isMissing(res.error) ? "Falta rodar o SQL dos grupos no Supabase." : res.error.message; return; }
+    gd.close();
+    await loadGroups();
+    showSpace(res.data);
+    showToast(gdMode==="criar" ? "Grupo criado! Toque em Convidar para chamar as pessoas." : "Você entrou no grupo.", null);
+  };
+
+  // ----- convite -----
+  const iv=$("inviteDialog");
+  $("gInvite").onclick=()=>{ const g=curGroup(); if(!g) return; $("ivCode").textContent=g.convite; $("ivErr").textContent=""; iv.showModal(); };
+  $("ivClose").onclick=()=>iv.close();
+  $("ivNew").onclick=async()=>{
+    const g=curGroup(); if(!g) return;
+    if(!confirm("Gerar um novo código? O código antigo para de funcionar. Quem já está no grupo continua.")) return;
+    const { data, error } = await sb.rpc("novo_convite_grupo", { p_grupo:g.id });
+    if(error){ $("ivErr").textContent=error.message; return; }
+    g.convite=data; $("ivCode").textContent=data;
+  };
+  $("ivShare").onclick=async()=>{
+    const g=curGroup(); if(!g) return;
+    const url=location.href.split("#")[0];
+    const text=`Entre no grupo “${g.nome}” do Controle de Gastos. Abra ${url}, entre na sua conta, toque em “+ Grupo” > “Entrar com código” e use o código ${g.convite}`;
+    try{
+      if(navigator.share){ await navigator.share({ title:"Controle de gastos", text }); return; }
+    }catch(err){ if(err && err.name==="AbortError") return; }
+    try{ await navigator.clipboard.writeText(text); showToast("Convite copiado. É só colar no WhatsApp.", null); }
+    catch(err){ showToast("Código: "+g.convite, null); }
+  };
+
+  function startGroups(){
+    groupsOff=false; groups=[]; space="me"; renderSpaces(); loadGroups();
+    clearInterval(gTimer);
+    gTimer=setInterval(()=>{ if(document.visibilityState==="visible" && !document.querySelector("dialog[open]")) loadGroups(); }, 30000);
+  }
+  function stopGroups(){ clearInterval(gTimer); groups=[]; space="me"; $("groupView").hidden=true; $("personalView").hidden=false; }
+  document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible" && user) loadGroups(); });
+
   async function enter(u){
     if(user && user.id===u.id) return;
     user=u;
@@ -1130,9 +1638,11 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     $("app").hidden=false; $("date").value=today();
     renderChips(); render(); setSync("Salvo na nuvem");
     startInbox();
+    startGroups();
   }
   function leave(){
     stopInbox();
+    stopGroups();
     user=null; state={ budget:0, months:{}, commits:[] };
     $("app").hidden=true; $("lock").hidden=false; setMode("login");
   }
