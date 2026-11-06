@@ -84,6 +84,8 @@ input[type=text],input[type=date],input[inputmode]{background:var(--bg);border:1
 .primary:hover{filter:brightness(1.05)}
 .ghost{background:none;border:1px solid var(--line);border-radius:12px;padding:10px 14px}
 .err{color:var(--bad);font-size:.88rem;margin:8px 0 0;min-height:1.2em}
+.ok{color:var(--ok);font-size:.88rem;margin:0}
+.ok:empty{display:none}
 
 /* list */
 .section{margin-bottom:36px}
@@ -163,17 +165,21 @@ html,body{height:100%}
 </style>
 </head>
 <body>
-<div class="lock" id="lock" hidden>
-  <form class="lock-card" id="unlockForm">
+<div class="lock" id="lock">
+  <form class="lock-card" id="authForm" novalidate>
     <h1>Controle de gastos</h1>
-    <p>Digite sua senha para abrir.</p>
-    <input type="password" id="unlockPw" autocomplete="current-password" aria-label="Senha" required>
-    <button class="primary" type="submit">Entrar</button>
-    <p class="err" id="unlockErr" role="alert"></p>
-    <button type="button" class="linkish" id="forgot">Esqueci a senha</button>
+    <p id="authHint">Entre com seu e-mail e senha.</p>
+    <input type="email" id="authEmail" autocomplete="email" placeholder="E-mail" aria-label="E-mail" required>
+    <input type="password" id="authPw" autocomplete="current-password" placeholder="Senha" aria-label="Senha">
+    <input type="password" id="authPw2" autocomplete="new-password" placeholder="Repita a senha" aria-label="Repita a senha" hidden>
+    <button class="primary" type="submit" id="authSubmit">Entrar</button>
+    <p class="err" id="authErr" role="alert"></p>
+    <p class="ok" id="authOk" role="status"></p>
+    <button type="button" class="linkish" id="toSignup">Não tem conta? Criar conta</button><br>
+    <button type="button" class="linkish" id="toForgot">Esqueci a senha</button>
   </form>
 </div>
-<div class="wrap" id="app">
+<div class="wrap" id="app" hidden>
   <header class="top">
     <div class="month">
       <button class="icon-btn" id="prev" aria-label="Mês anterior">‹</button>
@@ -182,7 +188,7 @@ html,body{height:100%}
     </div>
     <div class="top-right">
       <div class="sync" id="sync"></div>
-      <button class="ghost" id="lockBtn" hidden>Bloquear</button>
+      <button class="ghost" id="logoutBtn">Sair</button>
     </div>
   </header>
 
@@ -270,13 +276,13 @@ html,body{height:100%}
 
   <section class="section">
     <h2>Dados e segurança</h2>
-    <p class="forecast-note" style="margin:0 0 14px">Seus gastos ficam guardados só neste navegador. Para usar em outro aparelho, baixe um backup aqui e restaure lá.</p>
+    <p class="forecast-note" style="margin:0 0 14px" id="acctNote">Seus gastos ficam salvos na sua conta e aparecem em qualquer aparelho em que você entrar.</p>
     <div class="tools">
       <button class="ghost" id="backupBtn">Baixar backup</button>
       <button class="ghost" id="restoreBtn">Restaurar backup</button>
       <button class="ghost" id="exportBtn">Baixar planilha (CSV)</button>
-      <button class="ghost" id="pwBtn">Proteger com senha</button>
-      <button class="ghost" id="pwOff" hidden>Remover senha</button>
+      <button class="ghost" id="importLocal" hidden>Trazer dados salvos neste navegador</button>
+      <button class="ghost" id="pwBtn">Trocar senha</button>
     </div>
     <input type="file" id="restoreFile" accept="application/json,.json" hidden>
   </section>
@@ -284,8 +290,8 @@ html,body{height:100%}
 
 <dialog id="pwDialog">
   <form id="pwForm">
-    <h2>Senha de acesso</h2>
-    <p>Os dados serão criptografados com essa senha. Se você esquecer, não há como recuperar, então mantenha um backup.</p>
+    <h2>Nova senha</h2>
+    <p>Escolha a nova senha da sua conta.</p>
     <input type="password" id="pwNew" placeholder="Nova senha" autocomplete="new-password" aria-label="Nova senha">
     <input type="password" id="pwNew2" placeholder="Repita a senha" autocomplete="new-password" aria-label="Repita a senha">
     <p class="err" id="pwErr" role="alert"></p>
@@ -298,6 +304,14 @@ html,body{height:100%}
 
 <div class="toast" id="toast" role="status"><span id="toastMsg"></span><button id="toastBtn">Desfazer</button></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+// ===== CONFIGURAÇÃO DO SUPABASE =====
+// Cole aqui os dados do seu projeto (Supabase > Project Settings > API).
+// A "anon public key" pode ficar no código: quem protege os dados são as regras (RLS) do banco.
+const SUPABASE_URL = "https://lnoudtmfcfwmglgtijvl.supabase.co";
+const SUPABASE_ANON_KEY = "COLE_AQUI_A_ANON_PUBLIC_KEY";
+</script>
 <script>
 (function(){
   const CATS = [
@@ -348,33 +362,32 @@ html,body{height:100%}
   let remote = null;
   let gotRemote = false;
 
-  // ---------- armazenamento (localStorage, com criptografia opcional) ----------
-  const LS_ENC = "controle-gastos-enc";
-  let cryptoKey = null, cryptoSalt = null;
-  const enc = new TextEncoder(), dec = new TextDecoder();
-  const b64 = u8 => btoa(String.fromCharCode(...u8));
-  const unb64 = s => Uint8Array.from(atob(s), c=>c.charCodeAt(0));
-
-  async function deriveKey(pass, salt){
-    const base = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
-    return crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations:250000, hash:"SHA-256"}, base, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
-  }
-  async function encryptState(){
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const ct = new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM", iv}, cryptoKey, enc.encode(JSON.stringify(state))));
-    return JSON.stringify({v:1, salt:b64(cryptoSalt), iv:b64(iv), ct:b64(ct)});
-  }
+  // ---------- armazenamento (Supabase, um registro por usuário) ----------
+  // Tabela "gastos": user_id (uuid, chave), data (jsonb), updated_at
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  let user = null;
   function normalize(p){
     return { budget:+(p&&p.budget)||0, months:(p&&typeof p.months==="object"&&p.months)||{}, commits:Array.isArray(p&&p.commits)?p.commits:[] };
   }
-  let saveChain = Promise.resolve();
+  let saveTimer = null, saving = false, dirty = false;
   function persist(){
-    saveChain = saveChain.then(async()=>{
-      try{
-        if(cryptoKey){ localStorage.setItem(LS_ENC, await encryptState()); localStorage.removeItem(LS_KEY); }
-        else { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
-      }catch(e){ showToast("Não foi possível salvar neste navegador. Baixe um backup para não perder os dados.", null); }
-    });
+    dirty = true; setSync("Salvando…");
+    clearTimeout(saveTimer); saveTimer = setTimeout(flush, 600);
+  }
+  async function flush(){
+    if(saving || !user){ return; }
+    saving = true; dirty = false;
+    const { error } = await sb.from("gastos").upsert({ user_id:user.id, data:state, updated_at:new Date().toISOString() });
+    saving = false;
+    if(error){ dirty = true; setSync("Erro ao salvar"); showToast("Não foi possível salvar na nuvem. Verifique a internet; vou tentar de novo.", null); clearTimeout(saveTimer); saveTimer=setTimeout(flush, 5000); return; }
+    if(dirty){ flush(); return; }
+    setSync("Salvo na nuvem");
+  }
+  window.addEventListener("beforeunload", e=>{ if(dirty||saving){ e.preventDefault(); e.returnValue=""; } });
+  async function loadRemote(){
+    const { data, error } = await sb.from("gastos").select("data").eq("user_id", user.id).maybeSingle();
+    if(error) throw error;
+    return data ? normalize(data.data) : null;
   }
   const saveMonth = () => persist();
   const saveSettings = () => persist();
@@ -405,11 +418,8 @@ html,body{height:100%}
 
   // ---------- rendering ----------
   const $ = id => document.getElementById(id);
-  function setSync(){
-    $("sync").textContent = cryptoKey ? "Protegido por senha" : "Salvo neste navegador";
-    $("lockBtn").hidden = !cryptoKey;
-    $("pwBtn").textContent = cryptoKey ? "Trocar senha" : "Proteger com senha";
-    $("pwOff").hidden = !cryptoKey;
+  function setSync(msg){
+    $("sync").textContent = (user ? user.email : "") + (msg ? " · " + msg : "");
   }
 
   function renderChips(){
@@ -721,69 +731,126 @@ html,body{height:100%}
     try{
       const p=JSON.parse(await f.text());
       const data=normalize(p.data||p);
-      if(!confirm("Restaurar este backup? Os dados atuais deste navegador serão substituídos.")) return;
+      if(!confirm("Restaurar este backup? Os dados atuais da sua conta serão substituídos.")) return;
       state=data; persist(); viewKey=curKey(); render();
       showToast("Backup restaurado.", null);
     }catch(err){ showToast("Esse arquivo não é um backup válido do controle de gastos.", null); }
   };
 
-  // senha
+  // ---------- dados antigos (da versão que salvava só no navegador) ----------
+  // (LS_KEY definido no início)
+  function localOld(){
+    try{ const raw=localStorage.getItem(LS_KEY); if(raw){ const d=normalize(JSON.parse(raw)); if(Object.keys(d.months).length||d.commits.length) return d; } }catch(e){}
+    return null;
+  }
+  $("importLocal").onclick=()=>{
+    const d=localOld(); if(!d) return;
+    if(!confirm("Trazer os gastos que estavam salvos só neste navegador para a sua conta? Os dados atuais da conta serão substituídos.")) return;
+    state=d; persist(); viewKey=curKey(); render();
+    try{ localStorage.removeItem(LS_KEY); }catch(e){}
+    $("importLocal").hidden=true;
+    showToast("Dados trazidos para a sua conta.", null);
+  };
+
+  // ---------- trocar senha ----------
   const dlg=$("pwDialog");
   $("pwBtn").onclick=()=>{ $("pwNew").value=""; $("pwNew2").value=""; $("pwErr").textContent=""; dlg.showModal(); $("pwNew").focus(); };
   $("pwCancel").onclick=()=>dlg.close();
   $("pwForm").onsubmit=async e=>{
     e.preventDefault();
     const a=$("pwNew").value, b=$("pwNew2").value;
-    if(a.length<4){ $("pwErr").textContent="Use pelo menos 4 caracteres."; return; }
+    if(a.length<6){ $("pwErr").textContent="Use pelo menos 6 caracteres."; return; }
     if(a!==b){ $("pwErr").textContent="As duas senhas não são iguais."; return; }
-    cryptoSalt=crypto.getRandomValues(new Uint8Array(16));
-    cryptoKey=await deriveKey(a, cryptoSalt);
-    persist(); await saveChain; dlg.close(); setSync();
-    showToast("Senha definida. Se esquecer, os dados não podem ser recuperados, então guarde um backup.", null);
+    const { error } = await sb.auth.updateUser({ password:a });
+    if(error){ $("pwErr").textContent=traduz(error); return; }
+    dlg.close(); showToast("Senha alterada.", null);
   };
-  $("pwOff").onclick=async()=>{
-    if(!confirm("Remover a senha? Os dados ficarão salvos sem criptografia neste navegador.")) return;
-    cryptoKey=null; cryptoSalt=null;
-    localStorage.setItem(LS_KEY, JSON.stringify(state)); localStorage.removeItem(LS_ENC);
-    setSync(); showToast("Senha removida.", null);
-  };
-  $("lockBtn").onclick=()=>location.reload();
 
-  function start(){
-    $("lock").hidden=true; $("app").hidden=false;
-    $("date").value=today();
-    renderChips(); render(); setSync();
+  // ---------- login / cadastro ----------
+  let mode = "login"; // login | signup | forgot
+  function setMode(m){
+    mode=m; $("authErr").textContent=""; $("authOk").textContent="";
+    $("authPw").hidden = m==="forgot";
+    $("authPw2").hidden = m!=="signup";
+    $("authPw").autocomplete = m==="signup" ? "new-password" : "current-password";
+    $("authHint").textContent = m==="signup" ? "Crie sua conta com seu e-mail e uma senha." : m==="forgot" ? "Digite seu e-mail para receber um link de nova senha." : "Entre com seu e-mail e senha.";
+    $("authSubmit").textContent = m==="signup" ? "Criar conta" : m==="forgot" ? "Enviar link" : "Entrar";
+    $("toSignup").textContent = m==="login" ? "Não tem conta? Criar conta" : "Já tenho conta. Entrar";
+    $("toForgot").hidden = m!=="login";
   }
-
-  // ---------- boot ----------
-  const encRaw = localStorage.getItem(LS_ENC);
-  if(encRaw){
-    $("lock").hidden=false; $("app").hidden=true; $("unlockPw").focus();
-    $("unlockForm").onsubmit=async e=>{
-      e.preventDefault();
-      const btn=$("unlockForm").querySelector("button[type=submit]"); btn.disabled=true; btn.textContent="Abrindo…";
-      try{
-        const o=JSON.parse(encRaw);
-        const salt=unb64(o.salt);
-        const key=await deriveKey($("unlockPw").value, salt);
-        const pt=await crypto.subtle.decrypt({name:"AES-GCM", iv:unb64(o.iv)}, key, unb64(o.ct));
-        state=normalize(JSON.parse(dec.decode(pt)));
-        cryptoKey=key; cryptoSalt=salt; $("unlockPw").value="";
-        start();
-      }catch(err){
-        $("unlockErr").textContent="Senha incorreta. Tente de novo.";
-        $("unlockPw").select();
+  $("toSignup").onclick=()=>setMode(mode==="login"?"signup":"login");
+  $("toForgot").onclick=()=>setMode("forgot");
+  function traduz(err){
+    const m=(err&&err.message)||"";
+    if(/Invalid login credentials/i.test(m)) return "E-mail ou senha incorretos.";
+    if(/Email not confirmed/i.test(m)) return "Confirme seu e-mail antes de entrar (veja sua caixa de entrada e o spam).";
+    if(/already registered/i.test(m)) return "Já existe uma conta com esse e-mail. Use “Entrar”.";
+    if(/Password should be/i.test(m)) return "A senha precisa ter pelo menos 6 caracteres.";
+    if(/rate limit/i.test(m)) return "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.";
+    if(/invalid/i.test(m) && /email/i.test(m)) return "Esse e-mail não parece válido.";
+    if(/fetch|network/i.test(m)) return "Sem conexão com o servidor. Verifique a internet.";
+    return "Algo deu errado: " + m;
+  }
+  const appUrl = location.origin + location.pathname;
+  $("authForm").onsubmit=async e=>{
+    e.preventDefault();
+    const email=$("authEmail").value.trim(), pw=$("authPw").value;
+    $("authErr").textContent=""; $("authOk").textContent="";
+    if(!/^\S+@\S+\.\S+$/.test(email)){ $("authErr").textContent="Digite um e-mail válido."; $("authEmail").focus(); return; }
+    if(mode!=="forgot" && pw.length<6){ $("authErr").textContent="A senha precisa ter pelo menos 6 caracteres."; $("authPw").focus(); return; }
+    if(mode==="signup" && pw!==$("authPw2").value){ $("authErr").textContent="As duas senhas não são iguais."; $("authPw2").focus(); return; }
+    const btn=$("authSubmit"), label=btn.textContent; btn.disabled=true; btn.textContent="Aguarde…";
+    try{
+      if(mode==="login"){
+        const { error } = await sb.auth.signInWithPassword({ email, password:pw });
+        if(error) throw error;
+      } else if(mode==="signup"){
+        const { data, error } = await sb.auth.signUp({ email, password:pw, options:{ emailRedirectTo:appUrl } });
+        if(error) throw error;
+        if(!data.session){ setMode("login"); $("authEmail").value=email; $("authOk").textContent="Conta criada! Enviamos um e-mail de confirmação. Clique no link e depois entre aqui."; }
+      } else {
+        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo:appUrl });
+        if(error) throw error;
+        $("authOk").textContent="Se existir uma conta com esse e-mail, você vai receber um link para criar uma nova senha.";
       }
-      btn.disabled=false; btn.textContent="Entrar";
-    };
-    $("forgot").onclick=()=>{
-      if(!confirm("Sem a senha não dá para abrir os dados. Apagar tudo deste navegador e começar do zero? Se tiver um backup, você pode restaurá-lo depois.")) return;
-      localStorage.removeItem(LS_ENC); localStorage.removeItem(LS_KEY); location.reload();
-    };
-  } else {
-    try{ const raw=localStorage.getItem(LS_KEY); if(raw) state=normalize(JSON.parse(raw)); }catch(e){}
-    start();
+    }catch(err){ $("authErr").textContent=traduz(err); }
+    btn.disabled=false; btn.textContent=label;
+  };
+  $("logoutBtn").onclick=async()=>{
+    if(dirty||saving){ await flush(); }
+    await sb.auth.signOut();
+  };
+
+  async function enter(u){
+    if(user && user.id===u.id) return;
+    user=u;
+    $("lock").hidden=true; $("app").hidden=true;
+    try{
+      const remoteState = await loadRemote();
+      state = remoteState || { budget:0, months:{}, commits:[] };
+      if(!remoteState) await sb.from("gastos").upsert({ user_id:user.id, data:state, updated_at:new Date().toISOString() });
+    }catch(err){
+      user=null; $("lock").hidden=false; $("authErr").textContent="Não foi possível carregar seus dados: "+((err&&err.message)||err);
+      return;
+    }
+    $("importLocal").hidden = !localOld();
+    $("authPw").value=""; $("authPw2").value="";
+    viewKey=curKey();
+    $("app").hidden=false; $("date").value=today();
+    renderChips(); render(); setSync("Salvo na nuvem");
   }
+  function leave(){
+    user=null; state={ budget:0, months:{}, commits:[] };
+    $("app").hidden=true; $("lock").hidden=false; setMode("login");
+  }
+
+  sb.auth.onAuthStateChange((event, session)=>{
+    setTimeout(()=>{ // fora do callback, como recomenda o Supabase
+      if(event==="PASSWORD_RECOVERY"){ if(session) enter(session.user).then(()=>$("pwBtn").click()); return; }
+      if(session && session.user) enter(session.user); else leave();
+    },0);
+  });
+  setMode("login");
 
   if("serviceWorker" in navigator && location.protocol==="https:"){
     navigator.serviceWorker.register("sw.js").catch(()=>{});
