@@ -175,6 +175,28 @@ dialog input{background:var(--bg);border:1px solid var(--line);border-radius:10p
 .top-right{display:flex;align-items:center;gap:10px}
 html,body{height:100%}
 [hidden]{display:none!important}
+
+/* compras recebidas pelo Atalho */
+.inbox{margin-bottom:36px}
+.inbox h2{display:flex;align-items:center;gap:10px}
+.badge{background:var(--accent);color:var(--accent-ink);border-radius:999px;font-size:.8rem;padding:1px 9px;font-family:var(--body);font-weight:700}
+.rcv{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:10px}
+.rcv-grid{display:grid;grid-template-columns:1fr 1.5fr;gap:8px;margin-bottom:8px}
+.rcv-grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.rcv input,.rcv select{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%;min-width:0}
+.rcv .rv{font-family:var(--display);font-weight:700;font-size:1.15rem}
+.rcv-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rcv-actions .primary{padding:10px 16px}
+.rcv-actions .ghost{padding:9px 14px}
+.rcv details{margin-top:10px;font-size:.85rem;color:var(--muted)}
+.rcv details p{margin:6px 0 0;white-space:pre-wrap;word-break:break-word}
+.warn{background:color-mix(in srgb, var(--bad) 12%, transparent);color:var(--bad);border-radius:8px;padding:6px 10px;font-size:.85rem;margin:0 0 10px}
+.copyrow{display:flex;gap:6px;margin-bottom:12px}
+.copyrow input{flex:1;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8rem}
+.copyrow button{flex:none}
+#scDialog{max-width:440px}
+#scDialog label{display:block;font-size:.85rem;color:var(--muted);margin-bottom:4px}
+@media (max-width:480px){.rcv-grid{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -272,6 +294,12 @@ html,body{height:100%}
   </section>
 
 
+  <section class="inbox" id="inbox" hidden>
+    <h2>Compras recebidas <span class="badge" id="inboxCount">0</span></h2>
+    <p class="forecast-note" style="margin:0 0 12px">Chegaram pelo Atalho do iPhone. Confira e adicione aos seus gastos.</p>
+    <div id="inboxList"></div>
+  </section>
+
   <section class="section">
     <h2>Contas, parcelas e dívidas</h2>
     <div id="commits"></div>
@@ -326,6 +354,7 @@ html,body{height:100%}
       <button class="ghost" id="exportBtn">Baixar planilha (CSV)</button>
       <button class="ghost" id="importLocal" hidden>Trazer dados salvos neste navegador</button>
       <button class="ghost" id="pwBtn">Trocar senha</button>
+      <button class="ghost" id="scBtn">Conectar Atalho do iPhone</button>
     </div>
     <input type="file" id="restoreFile" accept="application/json,.json" hidden>
   </section>
@@ -343,6 +372,25 @@ html,body{height:100%}
       <button type="submit" class="primary">Salvar senha</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="scDialog">
+  <h2>Atalho do iPhone</h2>
+  <p>Copie estes três dados para a ação “Obter Conteúdo da URL” do Atalho. O código secreto é só seu: não mostre para ninguém.</p>
+  <label for="scUrl">Endereço (URL)</label>
+  <div class="copyrow"><input id="scUrl" readonly><button type="button" class="ghost" data-copy="scUrl">Copiar</button></div>
+  <label for="scKey">Chave (apikey)</label>
+  <div class="copyrow"><input id="scKey" readonly><button type="button" class="ghost" data-copy="scKey">Copiar</button></div>
+  <label for="scToken">Código secreto (p_token)</label>
+  <div class="copyrow"><input id="scToken" readonly placeholder="Carregando…"><button type="button" class="ghost" data-copy="scToken">Copiar</button></div>
+  <p class="err" id="scErr" role="alert"></p>
+  <div class="dlg-actions" style="justify-content:space-between;flex-wrap:wrap">
+    <button type="button" class="ghost" id="scNew">Gerar novo código</button>
+    <span style="display:flex;gap:8px">
+      <button type="button" class="ghost" id="scTest">Enviar teste</button>
+      <button type="button" class="primary" id="scClose">Fechar</button>
+    </span>
+  </div>
 </dialog>
 
 <div class="toast" id="toast" role="status"><span id="toastMsg"></span><button id="toastBtn">Desfazer</button></div>
@@ -864,6 +912,206 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     await sb.auth.signOut();
   };
 
+  // ---------- leitura de SMS de compra ----------
+  const semAcento = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  const PALAVRAS_IGNORAR = new Set("COMPRA COMPRAS APROVADA APROVADO REALIZADA EFETUADA CARTAO CARTÃO CREDITO CRÉDITO DEBITO DÉBITO FINAL VALOR DE EM NO NA DO DA PARA COM SEU SUA VISA MASTERCARD MASTER ELO AMEX HIPERCARD BRL RS R$ BANCO CARTOES CARTÕES ITAU ITAÚ BRADESCO SANTANDER CAIXA NUBANK INTER C6 BB SICREDI SICOOB PERSONNALITE UNICLASS PLATINUM GOLD BLACK INFINITE INTERNACIONAL NACIONAL AS ÀS H HS SMS ALERTA AVISO TRANSACAO TRANSAÇÃO LIMITE DISPONIVEL DISPONÍVEL SALDO".split(" "));
+  const REGRAS_CATEGORIA = [
+    ["mercado",   /supermerc|mercad|atacad|assai|atacadao|carrefour|pao de acucar|extra hiper|hortifruti|sacolao|bompreco|big bompreco|mateus|arco mix|nordestao|quitanda|acougue|frigorif/],
+    ["comer",     /ifood|rappi|restaur|lanch|padaria|panific|pizz|burger|burguer|mc ?donald|bk |subway|habib|outback|bar |boteco|cafe|cafeteria|sorvet|acai|doceria|confeit|churras|espetinho|food/],
+    ["transporte",/posto|combust|shell|ipiranga|petrobras|br mania|uber|99 ?app|99pop|cabify|estacion|parking|sem parar|veloe|conectcar|pedagio|metro|onibus|vem |gasolin/],
+    ["saude",     /farma|drogar|droga|raia|pacheco|pague menos|panvel|extrafarma|hospital|clinic|laborat|odonto|dentist|medic|otica|psicol/],
+    ["contas",    /claro|vivo|tim |oi fibra|net servic|neoenergia|celpe|enel|light|cemig|copel|compesa|sabesp|embasa|energia|agua|internet|telefon|google storage|icloud|apple\.com/],
+    ["lazer",     /netflix|spotify|disney|hbo|max\.com|prime video|amazon prime|youtube|deezer|globoplay|cinema|cinemark|ingresso|sympla|eventim|steam|playstation|xbox|nintendo|game|teatro|show|parque|hotel|airbnb|booking|decolar|latam|azul linhas|gol linhas/],
+    ["moradia",   /aluguel|condomin|imobili|leroy|telhanorte|ferreira costa|tok ?stok|camicado|casas bahia|magazine luiza|magalu|madeira|movei/]
+  ];
+  function adivinharCategoria(texto){
+    const t = " "+semAcento(texto).toLowerCase()+" ";
+    for(const [cat, re] of REGRAS_CATEGORIA) if(re.test(t)) return cat;
+    return "outros";
+  }
+  function capitalizar(s){
+    if(s !== s.toUpperCase()) return s;
+    return s.toLowerCase().replace(/(^|[\s\-\/.*])([a-zà-ú])/g,(m,a,b)=>a+b.toUpperCase());
+  }
+  function limparLoja(s){
+    if(!s) return "";
+    s = s.replace(/\s+/g," ").replace(/^[\s\-–:*]+|[\s\-–:,.;*]+$/g,"").replace(/\s+(em|no|na|de|do|da|as|às)$/i,"").trim();
+    if(s.length < 2 || /^\d/.test(s) || /cart[aã]o|final \d|R\$|^(sua|seu|uma|um)\b/i.test(s)) return "";
+    return capitalizar(s.slice(0,60));
+  }
+  function parseSMS(texto, recebidoEm){
+    const t = String(texto||"").replace(/\s+/g," ").trim();
+    const r = { valor: NaN, loja: "", dt: "", categoria: "outros", aviso: "" };
+
+    const mv = t.match(/R\$\s?(\d{1,3}(?:\.\d{3})+,\d{2}|\d+,\d{2}|\d+\.\d{2}(?!\d)|\d+)/i)
+            || t.match(/(?:valor|vlr|BRL)\D{0,10}(\d{1,3}(?:\.\d{3})+,\d{2}|\d+,\d{2})/i);
+    if(mv) r.valor = parseMoney(mv[1]);
+
+    const rec = recebidoEm ? new Date(recebidoEm) : new Date();
+    const md = t.match(/\b(\d{2})\/(\d{2})(?:\/(\d{2,4}))?\b/);
+    let d = null;
+    if(md){
+      const dd=+md[1], mm=+md[2];
+      let yy = md[3] ? +md[3] : rec.getFullYear(); if(yy<100) yy+=2000;
+      if(dd>=1 && dd<=31 && mm>=1 && mm<=12){
+        d = new Date(yy, mm-1, dd);
+        if(!md[3] && d - rec > 2*864e5) d = new Date(yy-1, mm-1, dd);
+      }
+    }
+    if(!d) d = rec;
+    r.dt = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+    const fim = "(?=\\s+(?:para o|para seu|para sua|no cart|com o cart|com cart|no dia|dia \\d|em \\d|às|as \\d|valor|R\\$|aprovad|cart[aã]o)|[,;]|\\.\\s|\\.$|$)";
+    const padroes = [
+      new RegExp("(?:estabelecimento|loja|local)\\s*:?\\s+([^,;]+?)" + fim, "i"),
+      new RegExp("(?:aprovad[ao]|realizad[ao]|efetuad[ao])\\s+(?:em|no|na)\\s+(?!\\d)(?!seu\\b|sua\\b|cart)([^,;]+?)" + fim, "i"),
+      new RegExp("R\\$\\s?[\\d.,]+\\s+(?:em|no|na)\\s+(?!\\d)(?!seu\\b|sua\\b|cart)([^,;]+?)" + fim, "i"),
+      new RegExp("R\\$\\s?[\\d.,]+\\s*[-–]\\s*([^,;]+?)" + fim, "i"),
+      new RegExp("[-–]\\s*([A-Z0-9][A-Z0-9 *.&'\\/-]{2,40}?)\\s+valor", "i"),
+      new RegExp("(?:compra|pagamento)\\s+(?:aprovad[ao]\\s+)?(?:em|no|na)\\s+(?!\\d)(?!seu\\b|sua\\b|cart)([^,;]+?)" + fim, "i")
+    ];
+    for(const re of padroes){
+      const m = t.match(re);
+      const l = m && limparLoja(m[1]);
+      if(l){ r.loja = l; break; }
+    }
+    if(!r.loja){
+      // plano B: o maior trecho em MAIÚSCULAS que não seja palavra de banco
+      let melhor = "", atual = [];
+      const fecha = ()=>{ const s = atual.join(" "); if(s.replace(/[^A-Z]/g,"").length > melhor.replace(/[^A-Z]/g,"").length) melhor = s; atual = []; };
+      for(const w of t.split(/\s+/)){
+        const limpo = w.replace(/[,.;:]+$/,"");
+        if(/^[A-Z0-9*&'\/-]{2,}$/.test(semAcento(limpo)) && /[A-Z]/.test(limpo) && !PALAVRAS_IGNORAR.has(limpo) && !/^\d/.test(limpo)){
+          atual.push(limpo); if(limpo!==w) fecha();
+        } else fecha();
+      }
+      fecha();
+      r.loja = limparLoja(melhor);
+    }
+
+    r.categoria = adivinharCategoria(r.loja + " " + t);
+    if(/estorn|cancelad|devolu|reembols/i.test(t)) r.aviso = "Parece um estorno ou cancelamento";
+    else if(/negad|recusad|n[aã]o aprovad|nao autoriz|n[aã]o autoriz/i.test(t)) r.aviso = "Parece uma compra recusada";
+    return r;
+  }
+
+  // ---------- caixa de entrada (Supabase) ----------
+  let inbox = [], inboxOff = false, inboxTimer = null;
+  async function loadInbox(){
+    if(!user || inboxOff) return;
+    const { data, error } = await sb.from("compras_recebidas").select("id,texto,recebido_em").order("recebido_em",{ascending:true});
+    if(error){ if(/does not exist|relation|schema cache/i.test(error.message||"")) inboxOff = true; return; }
+    const known = new Map(inbox.map(i=>[i.id,i]));
+    inbox = (data||[]).map(row => known.get(row.id) || { ...row, p: parseSMS(row.texto, row.recebido_em) });
+    renderInbox();
+  }
+  function isDup(v, dt, d){
+    return (state.months[dt.slice(0,7)]||[]).some(i=>i.v===v && i.dt===dt && (!d || (i.d||"").toLowerCase()===d.toLowerCase()));
+  }
+  function renderInbox(){
+    const box=$("inboxList"); box.innerHTML="";
+    $("inbox").hidden = !inbox.length;
+    $("inboxCount").textContent = inbox.length;
+    inbox.forEach(item=>{
+      const p=item.p;
+      const card=document.createElement("div"); card.className="rcv";
+      if(p.aviso || (!isNaN(p.valor) && isDup(p.valor,p.dt,p.loja))){
+        const w=document.createElement("p"); w.className="warn";
+        w.textContent = p.aviso || "Já existe um gasto igual neste dia. Pode ser repetido.";
+        card.append(w);
+      }
+      const g1=document.createElement("div"); g1.className="rcv-grid";
+      const val=document.createElement("input"); val.className="rv"; val.inputMode="decimal"; val.setAttribute("aria-label","Valor");
+      val.value = isNaN(p.valor) ? "" : (p.valor/100).toFixed(2).replace(".",","); val.placeholder="Valor";
+      const loja=document.createElement("input"); loja.value=p.loja; loja.placeholder="Descrição"; loja.maxLength=80; loja.setAttribute("aria-label","Descrição");
+      g1.append(val,loja);
+      const g2=document.createElement("div"); g2.className="rcv-grid2";
+      const dt=document.createElement("input"); dt.type="date"; dt.value=p.dt; dt.setAttribute("aria-label","Data");
+      const cat=document.createElement("select"); cat.setAttribute("aria-label","Categoria");
+      CATS.forEach(c=>{ const o=document.createElement("option"); o.value=c.id; o.textContent=c.name; cat.append(o); });
+      cat.value=p.categoria;
+      g2.append(dt,cat);
+      [val,loja,dt,cat].forEach(el=>el.addEventListener("change",()=>{ p.valor=parseMoney(val.value); p.loja=loja.value; p.dt=dt.value; p.categoria=cat.value; }));
+      const acts=document.createElement("div"); acts.className="rcv-actions";
+      const ok=document.createElement("button"); ok.className="primary"; ok.textContent="Adicionar";
+      const no=document.createElement("button"); no.className="ghost"; no.textContent="Descartar";
+      ok.onclick=()=>confirmInbox(item, { v:parseMoney(val.value), d:loja.value.trim(), dt:dt.value, c:cat.value }, ok);
+      no.onclick=()=>dropInbox(item, no);
+      acts.append(ok,no);
+      const det=document.createElement("details");
+      const sum=document.createElement("summary"); sum.textContent="Ver mensagem original";
+      const orig=document.createElement("p"); orig.textContent=item.texto;
+      det.append(sum,orig);
+      card.append(g1,g2,acts,det);
+      box.append(card);
+    });
+  }
+  async function removeRow(item){
+    const { error } = await sb.from("compras_recebidas").delete().eq("id", item.id);
+    if(error){ showToast("Não consegui atualizar a caixa de entrada. Verifique a internet.", null); return false; }
+    inbox = inbox.filter(i=>i.id!==item.id); renderInbox(); return true;
+  }
+  async function confirmInbox(item, g, btn){
+    if(isNaN(g.v) || g.v<=0){ showToast("Confira o valor antes de adicionar.", null); return; }
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(g.dt)) g.dt = today();
+    btn.disabled = true;
+    if(!(await removeRow(item))){ btn.disabled=false; return; }
+    const k=g.dt.slice(0,7);
+    (state.months[k] ||= []).push({ id:uid(), v:g.v, d:g.d.slice(0,80), c:g.c, dt:g.dt, ts:Date.now(), src:"sms" });
+    persist(); viewKey=k; render();
+    showToast(`${money(g.v)} adicionado.`, null);
+  }
+  async function dropInbox(item, btn){
+    btn.disabled = true;
+    if(await removeRow(item)) showToast("Compra descartada.", null); else btn.disabled=false;
+  }
+  document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") loadInbox(); });
+  function startInbox(){
+    inboxOff = false; inbox = []; loadInbox();
+    clearInterval(inboxTimer);
+    inboxTimer = setInterval(()=>{ if(document.visibilityState==="visible") loadInbox(); }, 60000);
+  }
+  function stopInbox(){ clearInterval(inboxTimer); inbox=[]; renderInbox(); }
+
+  // ---------- configuração do Atalho ----------
+  const scDlg = $("scDialog");
+  $("scUrl").value = SUPABASE_URL.replace(/\/+$/,"") + "/rest/v1/rpc/receber_compra";
+  $("scKey").value = SUPABASE_ANON_KEY;
+  async function loadToken(force){
+    $("scErr").textContent=""; $("scToken").value="";
+    let tok=null;
+    if(!force){
+      const { data, error } = await sb.from("tokens_atalho").select("token").eq("user_id", user.id).maybeSingle();
+      if(error){ $("scErr").textContent = /does not exist|schema cache/i.test(error.message||"") ? "Falta rodar o SQL do Atalho no Supabase." : "Erro: "+error.message; return; }
+      tok = data && data.token;
+    }
+    if(!tok){
+      const { data, error } = await sb.rpc("gerar_token_atalho");
+      if(error){ $("scErr").textContent = /Could not find|does not exist|schema cache/i.test(error.message||"") ? "Falta rodar o SQL do Atalho no Supabase." : "Erro: "+error.message; return; }
+      tok = data;
+    }
+    $("scToken").value = tok;
+  }
+  $("scBtn").onclick=()=>{ scDlg.showModal(); loadToken(false); };
+  $("scClose").onclick=()=>scDlg.close();
+  $("scNew").onclick=async()=>{
+    if(!confirm("Gerar um novo código? O Atalho atual para de funcionar até você colar o código novo nele.")) return;
+    await loadToken(true); if($("scToken").value) showToast("Código novo gerado. Atualize o Atalho.", null);
+  };
+  $("scTest").onclick=async()=>{
+    const tok=$("scToken").value; if(!tok) return;
+    const { error } = await sb.rpc("receber_compra", { p_token:tok, p_texto:"TESTE: Compra aprovada de R$ 1,00 em PADARIA TESTE no cartão final 0000." });
+    if(error){ $("scErr").textContent="O teste falhou: "+error.message; return; }
+    scDlg.close(); await loadInbox(); showToast("Teste recebido! Ele apareceu em Compras recebidas.", null);
+  };
+  scDlg.addEventListener("click", e=>{
+    const b=e.target.closest("[data-copy]"); if(!b) return;
+    const inp=$(b.dataset.copy); const v=inp.value; if(!v) return;
+    const done=()=>{ const o=b.textContent; b.textContent="Copiado"; setTimeout(()=>b.textContent=o,1500); };
+    if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done, ()=>{ inp.select(); document.execCommand("copy"); done(); });
+    else { inp.select(); document.execCommand("copy"); done(); }
+  });
+
   async function enter(u){
     if(user && user.id===u.id) return;
     user=u;
@@ -881,8 +1129,10 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     viewKey=curKey();
     $("app").hidden=false; $("date").value=today();
     renderChips(); render(); setSync("Salvo na nuvem");
+    startInbox();
   }
   function leave(){
+    stopInbox();
     user=null; state={ budget:0, months:{}, commits:[] };
     $("app").hidden=true; $("lock").hidden=false; setMode("login");
   }
